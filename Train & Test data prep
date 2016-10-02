@@ -1,0 +1,226 @@
+getwd()
+setwd()
+
+Import Data from csv format to R
+
+StartUp<-read.csv(file.choose(),header = T,as.is=T,na.strings = c(""))
+StartUp[StartUp=="No Info"]<- NA
+dim(StartUp)
+str(StartUp)
+summary(StartUp)
+table(is.na(StartUp))
+View(StartUp)
+
+
+Visualisation of NA with Amelia Package by subsetting columns/in once to knw distribution of na
+
+library(Amelia)
+Startup1<-subset(StartUp,select=c(1:116))
+missmap(Startup1, main = "Missing values vs observed")
+
+
+from character to date class
+
+StartUp$Est..Founding.Date <- as.Date(StartUp$Est..Founding.Date, "%m/%d/%Y")
+StartUp$Last.Funding.Date <- as.Date(StartUp$Last.Funding.Date, "%m/%d/%Y")
+
+check for class of founding date & funding date
+
+class(StartUp$Est..Founding.Date)
+class(StartUp$Last.Funding.Date)
+
+
+From str() we found Some numeric columns have character as class,need to convert from char to numeric
+
+str(StartUp) 
+column<- c(3:5,10,11,18:23,25,61,66,68:70,72,74,88,92,94:96,98,99,102:116)
+
+for(i in column)
+{
+  StartUp[,i]<-as.numeric(startup[,i])
+}
+
+str(StartUp)
+
+
+convert NA to percentage form
+
+missValues<-sapply(StartUp, function(x) sum(is.na(x)))
+percent_missV<-as.data.frame(round((missValues/nrow(startup))*100,1))
+name<-row.names(percent_missV)
+pcnt_miss_variable<-cbind(name,percent_missV)
+row.names(pcnt_miss_variable)<-NULL
+colnames(pcnt_miss_variable)<-c("variable","Percent.Missing")
+
+Segmentation of Variables by NA percentage into <=40 & >40,we can go for various capping as per distribution of 
+NA in individual variables,ie. 10%,20% for different treatment individually by mean/median/KNN/regressed impute.here 113 variables have <= 40%na & 3 varaibles have >40%na
+
+For <=40
+
+new_var<-as.character(pcnt_miss_variable$variable[which(pcnt_mis_var$Percent.Missing<=40)])
+new_startup<-StartUp[new_var]
+dim(new_startup)
+
+For>40
+
+new_var1<-as.character(pcnt_miss_variable$variable[which(pcnt_mis_var$Percent.Missing>40)])
+new_startup1<-StartUp[new_var1]
+dim(new_startup1)
+
+*Numeric Variables data frame(for <=40)
+
+Num_df<-new_startup[,c(3:5,10,12:14,17:22,24,60,65,67:69,71,73,85,89,91:93,95,96,99:113)]
+dim(Num_df)
+str(Num_df)
+View(Num_df)
+
+
+Mode <- function (x, na.rm) {
+  xtab <- table(x)
+  xmode <- names(which(xtab == max(xtab)))
+  if (length(xmode) > 1)
+    xmode <- ">1 mode"
+  return(xmode)
+}
+
+for (var in 1:ncol(Num_df)) {
+  if (class(Num_df[,var])=="numeric") {
+    Num_df[is.na(Num_df[,var]),var] <- median(Num_df[,var], na.rm = TRUE)
+  } else if (class(Num_df[,var]) %in% c("character","Date")) {
+    Num_df[is.na(Num_df[,var]),var] <- Mode(Num_df[,var], na.rm = TRUE)
+  }
+}
+
+Num_df$Last.Funding.Amount[is.na(Num_df$Last.Funding.Amount)]<-median(Num_df$Last.Funding.Amount,na.rm=T)
+
+dim(Num_df)
+str(Num_df)
+View(Num_df)
+table(is.na(Num_df))
+
+
+*Character Variable data frame
+
+char_var<-colnames(Num_df)
+var <- colnames(new_startup) %in% char_var 
+char_df <- new_startup[!var]
+dim(char_df)
+str(char_df)
+
+
+
+Mode <- function (x, na.rm) {
+  xtab <- table(x)
+  xmode <- names(which(xtab == max(xtab)))
+  if (length(xmode) > 1)
+    xmode <- ">1 mode"
+  return(xmode)
+}
+
+for (var in 1:ncol(char_df)) {
+  if (class(char_df[,var])=="numeric") {
+    char_df[is.na(char_df[,var]),var] <- median(char_df[,var], na.rm = TRUE)
+  } else if (class(char_df[,var]) %in% c("character","factor")) {
+    char_df[is.na(char_df[,var]),var] <- Mode(char_df[,var], na.rm = TRUE)
+  }
+}
+
+table(is.na(char_df))
+View(char_df)
+
+
+hist(nchar(char_df$Industry.of.company), main = "Histogram",
+     xlab = "attributes")
+hist(nchar(char_df))
+
+Mode <- function (x, na.rm){
+ for (var in 1:3(char_df1)) {
+  if (class(char_df[,var])=="numeric") {
+    char_df[is.na(char_df[,var]),var] <- mean(char_df[,var], na.rm = TRUE)
+  } else if (class(char_df[,var]) %in% c("character", "factor")) {
+    char_df[is.na(char_df[,var]),var] <- Mode(char_df[,var], na.rm = TRUE)
+  }
+}
+}
+
+
+
+
+char_df$Has.the.team.size.grown <- ifelse(char_df$Has.the.team.size.grown == "yes", 1, ifelse(char_df$Has.the.team.size.grown == "No",0, ""))
+char_df$Presence.of.a.top.angel.or.venture.fund.in.previous.round.of.investment <- ifelse(char_df$Presence.of.a.top.angel.or.venture.fund.in.previous.round.of.investment == "yes", 1, ifelse(char_df$Presence.of.a.top.angel.or.venture.fund.in.previous.round.of.investment == "No",0, ""))
+char_df$Have.been.part.of.startups.in.the.past.<- ifelse(char_df$Have.been.part.of.startups.in.the.past. == "yes", 1, ifelse(char_df$Have.been.part.of.startups.in.the.past. == "No",0, ""))
+char_df$Have.been.part.of.successful.startups.in.the.past. <- ifelse(char_df$Have.been.part.of.successful.startups.in.the.past. == "yes", 1, ifelse(char_df$Have.been.part.of.successful.startups.in.the.past. == "No",0, ""))
+char_df$Presence.of.a.top.angel.or.venture.fund.in.previous.round.of.investment <- ifelse(char_df$Presence.of.a.top.angel.or.venture.fund.in.previous.round.of.investment == "yes", 1, ifelse(char_df$Presence.of.a.top.angel.or.venture.fund.in.previous.round.of.investment == "No",0, ""))
+
+*go for individual variable treatment as 0/1 for yes/no. or contrast function after convert into categorical
+
+
+char_df$Local.or.global.player[is.na(char_df$Local.or.global.player)]<-Mode(char_df$Local.or.global.player)
+
+new_var1<-as.character(pcnt_miss_variable$variable[which(pcnt_mis_var$Percent.Missing>40)])
+new_startup1<-StartUp[new_var1]
+dim(new_startup1)
+View(new_startup1)
+table(is.na(new_startup1))
+objects(new_startup1)
+
+
+table(is.na(new_startup1$Employees.count.MoM.change))
+new_startup1<-new_startup1[-(1)]
+View(new_startup1)
+table(is.na(new_startup1))
+
+
+
+Mode <- function (x, na.rm) {
+  xtab <- table(x)
+  xmode <- names(which(xtab == max(xtab)))
+  if (length(xmode) > 1)
+    xmode <- ">1 mode"
+  return(xmode)
+}
+
+for (var in 1:ncol(new_startup1)) {
+  if (class(new_startup1[,var])=="numeric") {
+    new_startup1[is.na(new_startup1[,var]),var] <- median(new_startup1[,var], na.rm = TRUE)
+  } else if (class(new_startup1[,var]) %in% c("character","factor")) {
+    new_startup1[is.na(new_startup1[,var]),var] <- Mode(new_startup1[,var], na.rm = TRUE)
+  }
+}
+
+table(is.na(new_startup1))
+
+new_startup1$Employee.benefits.and.salary.structures[is.na(new_startup1$Employee.benefits.and.salary.structures)]<-Mode(new_startup1$Employee.benefits.and.salary.structures)
+table(is.na(new_startup1$Employee.benefits.and.salary.structures))
+new_startup1$Employee.benefits.and.salary.structures[new_startup1$Employee.benefits.and.salary.structures== "Bad"] <- 1
+new_startup1$Employee.benefits.and.salary.structures[new_startup1$Employee.benefits.and.salary.structures== "Average"] <- 2
+new_startup1$Employee.benefits.and.salary.structures[new_startup1$Employee.benefits.and.salary.structures== "Good"] <- 3
+new_startup1$Employee.benefits.and.salary.structures[new_startup1$Employee.benefits.and.salary.structures== "Very Good"] <- 4
+
+new_startup1$Client.Reputation[new_startup1$Client.Reputation== "Low"] <- 1
+new_startup1$Client.Reputation[new_startup1$Client.Reputation== "Medium"] <- 2
+new_startup1$Client.Reputation[new_startup1$Client.Reputation== "High"] <- 3
+
+
+class(new_startup1$Employee.benefits.and.salary.structures)
+is.factor(new_startup1$Employee.benefits.and.salary.structures)
+
+new_startup1$Employee.benefits.and.salary.structures<-as.factor(new_startup1$Employee.benefits.and.salary.structures)
+
+contrasts(new_startup1$Employee.benefits.and.salary.structures)
+
+
+Removing outliers by rerun syntax on Num_df variables
+
+library(outliers)
+boxplot(Num_df$Last.Funding.Amount)
+Num_df$Last.Funding.Amount<-rm.outlier(Num_df$Last.Funding.Amount,fill = TRUE,median = TRUE)
+
+boxplot(new_startup1$Employees.count.MoM.change)
+new_startup1$Employees.count.MoM.change<-rm.outlier(new_startup1$Employees.count.MoM.change,fill=TRUE,median=TRUE)
+
+
+cleanStartup<-cbind(Num_df,char_df,new_startup1)
+dim(cleanStartup)
+write.csv(cleanStartup,file="cleanStartUp1.csv")
+
