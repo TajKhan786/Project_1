@@ -1,0 +1,214 @@
+train<-read.csv(file.choose(),header = T,as.is = T,na.strings = c(""))
+str(train)
+dim(train)
+table(is.na(train))
+
+test<-read.csv(file.choose(),header = T,as.is = T,na.strings = c(""))
+str(test)
+dim(test)
+
+train$Category<-c("Train")
+test$Category<-c("Test")
+
+d<-rbind(train,test)
+dim(d)
+d$employee_count_code[d$Founders_previous_company_employee_count== "Small"] <- 1
+d$employee_count_code[d$Founders_previous_company_employee_count== "Medium"] <- 2
+d$employee_count_code[d$Founders_previous_company_employee_count== "Large"] <- 3
+
+d$Founders_previous_company_employee_count = NULL
+dim(d)
+str(d)
+
+
+library(plyr)
+
+d$Founders_previous_company_employee_count<-as.numeric(revalue(d$Founders_previous_company_employee_count,
+                                          c("Small"=1, "Medium"=2, "Large"=3)))
+
+d$Founders_previous_company_employee_count = NULL
+
+
+d$Founders_experience<-as.numeric(revalue(d$Founders_experience,
+                                          c("Low"=1, "Medium"=2, "High"=3)))
+
+d$Founders_experience = NULL
+
+
+
+d$Founders_Industry_exposure<-as.numeric(revalue(d$Founders_Industry_exposure,
+                                          c("Low"=1, "Medium"=2, "High"=3)))
+d$Founders_Industry_exposure = NULL
+
+
+
+d$Founders_profile_similarity<-as.numeric(revalue(d$Founders_profile_similarity,
+                                          c("None"=1,"Low"=2, "Medium"=3, "High"=4)))
+d$Founders_profile_similarity = NULL
+
+
+
+d$Founders_publications<-as.numeric(revalue(d$Founders_publications,
+                                            c("None"="1", "Few"=2, "Many"=3)))
+d$Founders_publications = NULL
+
+
+
+d$Company_difficulty_obtaining_workforce<-as.numeric(revalue(d$Company_difficulty_obtaining_workforce,
+                                            c("Low"=1, "Medium"=2, "High"=3)))
+
+d$Company_difficulty_obtaining_workforce = NULL
+
+
+train_0 <- train[train$Dependent==0,]
+train_1 <- train[train$Dependent==1,]
+train_0$Category<-NULL
+train_1$Category<-NULL
+
+library(caTools)
+sample_0 = sample.split(train_0, SplitRatio = .8)
+train_0_new = subset(train_0, sample_0 == TRUE)
+test_0_new = subset(train_0, sample_0 == FALSE)
+sample_1 = sample.split(train_1, SplitRatio = .8)
+train_1_new = subset(train_1, sample_1 == TRUE)
+test_1_new = subset(train_1, sample_1 == FALSE)
+
+train_new<- rbind(train_1_new,train_0_new)
+test_new<- rbind(test_1_new,test_0_new)
+
+dim(train_new)
+dim(test_new)
+
+View(train_new)
+View(test_new)
+
+
+Visualisation of association among variables.
+
+library(corrgram)
+corrgram(train_new)
+
+install.packages("devtools")
+library(devtools)
+install_github("tomasgreif/woe",force = TRUE)
+library(woe)
+
+train_new$CAX_ID<-NULL
+dim(train_new)
+
+
+IV<-iv.mult(train,y="Dependent",TRUE)
+
+var<-IV[which(IV$InformationValue>0.1),]
+var1<-var[which(var$InformationValue<0.5),]
+final_var<-var1$Variable
+
+model<-step(glm(Dependent~., family = binomial(link=logit),data = train_new))
+
+Below model have lowest AIC value among models.
+
+Modelnew<-glm(Dependent ~ Company_Location + Company_raising_fund + Company_investor_count_seed + 
+  Company_investor_count_Angel_VC + Company_senior_team_count + 
+  Company_repeat_investors_count + Company_business_model + 
+  Founder_education + Founder_university_quality + Founders_Popularity + 
+  Founders_publications + Founders_skills_score + Founders_Entrepreneurship_skills_score + 
+  Founders_Data_Science_skills_score + Company_crowdsourcing + 
+  Company_crowdfunding + Company_subscription_offering + Founder_highest_degree_type + 
+  Company_difficulty_obtaining_workforce,family = binomial(link=logit),data = train_new)
+
+summary(Modelnew)
+
+On removing insignificant variables.
+
+Modelnew1<-glm(Dependent ~ Company_Location 
+               + Company_senior_team_count + 
+                Company_repeat_investors_count + Company_business_model + 
+                Founder_education + Founder_university_quality + 
+                Founders_publications + 
+                Founders_Data_Science_skills_score + Company_crowdsourcing + 
+                Company_crowdfunding + Company_subscription_offering+ 
+                Company_difficulty_obtaining_workforce,family = binomial(link=logit),data = train_new)
+
+
+anova(Modelnew1, test="Chisq")
+
+The difference between the null deviance and the residual deviance shows how our model is doing against 
+the null model (a model with only the intercept).The wider this gap, the better.
+Analyzing the table we can see the drop in deviance when adding each variable one at a time.
+
+As in linear regression we have R square & adjusted R square,in logistic we have McFadden R2 to acess the model fit.
+library(pscl)
+pR2(model)
+
+
+
+In above, we briefly evaluated the fitting of the model, now we would like to see how the model is doing when predicting on a
+new set of data.By setting the parameter type='response', R will output probabilities in the form of P(y=1|X).
+Our decision boundary will be 0.5 If P(y=1|X) > 0.5 then y= 1 otherwise y=0. 
+Different decision boundaries could be tried,at 0.5 i get max accuracy.
+
+pred_prob<-predict (Modelnew1, newdata=test_new, type="response")
+
+fitted.results <- ifelse(pred_prob > 0.5,1,0)
+misClasificError <- mean(fitted.results !=test_new$Dependent)
+print(paste('Accuracy',1-misClasificError))
+
+Further,we are going to plot the ROC curve and calculate the AUC (area under the curve) which are typical performance
+measurements for a binary classifier.The ROC is a curve generated by plotting the true positive rate (TPR)
+against the false positive rate (FPR) at various threshold settings & the AUC is the area under the ROC curve.
+As a rule of thumb, a model with good predictive ability should have an AUC closer to 1.
+
+
+creating ROC curve
+
+library (ROCR)
+pred <- prediction (pred_prob, test_new$Dependent)
+
+
+roc <- performance(pred,"tpr","fpr")
+plot (roc)
+
+
+# Area under the curve
+performance(pred, 'auc')
+# creating ROC curve
+
+roc <- performance (pred,"tpr","fpr")
+plot (roc)
+
+auc <- performance(pred, measure = "auc")
+auc <- auc@y.values[[1]]
+
+plot(auc)
+
+perf <-as.data.frame(cbind(roc@alpha.values[[1]], roc@x.values[[1]], roc@y.values[[1]]))
+colnames(perf) <-c("Probability","FPR","TPR")
+
+
+perf <-perf[-1,]
+
+Reshape the data frame
+library(reshape)
+perf2<- melt(perf, measure.vars = c("FPR", "TPR"))
+
+plotting FPR, TPR on y axis and cut-off probability on x axis
+library(ggplot2)
+ggplot(perf2, aes(Probability, value, colour = variable)) +
+  geom_line()+ theme_bw()
+
+library(SDMTools)
+
+
+confusion.matrix (test_new$Dependent, pred_prob, threshold = 0.5)
+At 0.5 it gives max 0-0,1-1 or true true ,false false combination.
+
+View(test)
+
+Predict model on Test data.
+
+pred_CAX<- predict(Modelnew1, newdata=test, type="response")
+submit_CAX<- cbind(test$CAX_ID,pred_CAX)
+colnames(submit_CAX)<- c("CAX_ID", "Dependent")
+write.csv(submit_CAX,"Predictions.csv",row.names=F)
+
+
